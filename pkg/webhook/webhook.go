@@ -10,17 +10,17 @@ import (
 	"strings"
 	"time"
 
-	"github.com/Azure/azure-workload-identity/pkg/config"
-
 	"github.com/Azure/go-autorest/autorest/azure"
 	"github.com/pkg/errors"
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/utils/pointer"
+	"monis.app/mlog"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	"sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
+
+	"github.com/Azure/azure-workload-identity/pkg/config"
 )
 
 var (
@@ -110,7 +110,7 @@ func (m *podMutator) Handle(ctx context.Context, req admission.Request) (respons
 		serviceAccountName = "default"
 	}
 
-	logger := log.Log.WithName("handler").WithValues("pod", pod.Name, "namespace", pod.Namespace, "service-account", serviceAccountName)
+	logger := mlog.Logr().WithName("handler").WithValues("pod", pod.Name, "namespace", pod.Namespace, "service-account", serviceAccountName)
 	// get service account associated with the pod
 	serviceAccount := &corev1.ServiceAccount{}
 	if err = m.client.Get(ctx, types.NamespacedName{Name: serviceAccountName, Namespace: pod.Namespace}, serviceAccount); err != nil {
