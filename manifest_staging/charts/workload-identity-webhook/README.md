@@ -30,7 +30,7 @@ helm upgrade -n azure-workload-identity-system [RELEASE_NAME] azure-workload-ide
 ## Parameters
 
 | Parameter                        | Description                                                                                                                                                          | Default                                                 |
-|:---------------------------------|:---------------------------------------------------------------------------------------------------------------------------------------------------------------------|:--------------------------------------------------------|
+| :------------------------------- | :------------------------------------------------------------------------------------------------------------------------------------------------------------------- | :------------------------------------------------------ |
 | replicaCount                     | The number of azure-workload-identity replicas to deploy for the webhook                                                                                             | `2`                                                     |
 | image.repository                 | Image repository                                                                                                                                                     | `mcr.microsoft.com/oss/azure/workload-identity/webhook` |
 | image.pullPolicy                 | Image pullPolicy                                                                                                                                                     | `IfNotPresent`                                          |
