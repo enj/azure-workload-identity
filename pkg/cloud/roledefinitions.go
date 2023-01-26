@@ -6,12 +6,11 @@ import (
 
 	"github.com/Azure/azure-sdk-for-go/services/preview/authorization/mgmt/2018-01-01-preview/authorization"
 	"github.com/pkg/errors"
-	log "github.com/sirupsen/logrus"
 )
 
 // GetRoleDefinitionIDByName returns the role definition ID for the given role name.
 func (c *AzureClient) GetRoleDefinitionIDByName(ctx context.Context, scope, roleName string) (authorization.RoleDefinition, error) {
-	log.Debugf("Get role definition ID by name=%s", roleName)
+	mlog.Debug("Get role definition ID by name=%s", roleName)
 
 	roleDefinitionList, err := c.roleDefinitionsClient.List(ctx, scope, getRoleNameFilter(roleName))
 	if err != nil {

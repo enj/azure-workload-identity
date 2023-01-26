@@ -5,12 +5,13 @@ import (
 	"path/filepath"
 	"runtime"
 
+	"monis.app/mlog"
+
 	"github.com/Azure/azure-workload-identity/pkg/cloud"
 
 	"github.com/Azure/go-autorest/autorest/azure"
 	"github.com/google/uuid"
 	"github.com/pkg/errors"
-	log "github.com/sirupsen/logrus"
 	"github.com/spf13/pflag"
 	ini "gopkg.in/ini.v1"
 )
@@ -103,7 +104,7 @@ func (a *authArgs) Validate() error {
 		if err != nil || subID.String() == "00000000-0000-0000-0000-000000000000" {
 			return errors.New("--subscription-id is required (and must be a valid UUID)")
 		}
-		log.Infoln("No subscription provided, using selected subscription from Azure CLI:", subID.String())
+		mlog.Info("No subscription provided, using selected subscription from Azure CLI", "subscription-id", subID.String())
 		a.subscriptionID = subID
 	}
 
