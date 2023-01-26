@@ -108,20 +108,18 @@ func (m *podMutator) Handle(ctx context.Context, req admission.Request) (respons
 		serviceAccountName = "default"
 	}
 
-	// nolint:staticcheck
-	// we will migrate to mlog.New in a future change
-	logger := mlog.Logr().WithName("handler").WithValues("pod", podName, "namespace", pod.Namespace, "service-account", serviceAccountName)
+	logger := mlog.New().WithName("handler").WithValues("pod", podName, "namespace", pod.Namespace, "service-account", serviceAccountName)
 	// get service account associated with the pod
 	serviceAccount := &corev1.ServiceAccount{}
 	if err = m.client.Get(ctx, types.NamespacedName{Name: serviceAccountName, Namespace: pod.Namespace}, serviceAccount); err != nil {
 		if !apierrors.IsNotFound(err) {
-			logger.Error(err, "failed to get service account")
+			logger.Error("failed to get service account", err)
 			return admission.Errored(http.StatusBadRequest, err)
 		}
 		// bypass cache and get from the API server as it's not found in cache
 		err = m.reader.Get(ctx, types.NamespacedName{Name: serviceAccountName, Namespace: pod.Namespace}, serviceAccount)
 		if err != nil {
-			logger.Error(err, "failed to get service account")
+			logger.Error("failed to get service account", err)
 			return admission.Errored(http.StatusBadRequest, err)
 		}
 	}
@@ -129,7 +127,7 @@ func (m *podMutator) Handle(ctx context.Context, req admission.Request) (respons
 	if shouldInjectProxySidecar(pod) {
 		proxyPort, err := getProxyPort(pod)
 		if err != nil {
-			logger.Error(err, "failed to get proxy port")
+			logger.Error("failed to get proxy port", err)
 			return admission.Errored(http.StatusBadRequest, err)
 		}
 
@@ -140,7 +138,7 @@ func (m *podMutator) Handle(ctx context.Context, req admission.Request) (respons
 	// get service account token expiration
 	serviceAccountTokenExpiration, err := getServiceAccountTokenExpiration(pod, serviceAccount)
 	if err != nil {
-		logger.Error(err, "failed to get service account token expiration")
+		logger.Error("failed to get service account token expiration", err)
 		return admission.Errored(http.StatusBadRequest, err)
 	}
 	// get the clientID
@@ -154,13 +152,13 @@ func (m *podMutator) Handle(ctx context.Context, req admission.Request) (respons
 
 	// add the projected service account token volume to the pod if not exists
 	if err = addProjectedServiceAccountTokenVolume(pod, serviceAccountTokenExpiration, m.audience); err != nil {
-		logger.Error(err, "failed to add projected service account volume")
+		logger.Error("failed to add projected service account volume", err)
 		return admission.Errored(http.StatusBadRequest, err)
 	}
 
 	marshaledPod, err := json.Marshal(pod)
 	if err != nil {
-		logger.Error(err, "failed to marshal pod object")
+		logger.Error("failed to marshal pod object", err)
 		return admission.Errored(http.StatusInternalServerError, err)
 	}
 	return admission.PatchResponseFromRaw(req.Object.Raw, marshaledPod)
