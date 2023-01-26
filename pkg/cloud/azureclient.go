@@ -23,7 +23,6 @@ import (
 	msgraphbetasdk "github.com/microsoftgraph/msgraph-beta-sdk-go"
 	"github.com/microsoftgraph/msgraph-beta-sdk-go/models/microsoft/graph"
 	"github.com/pkg/errors"
-	log "github.com/sirupsen/logrus"
 )
 
 // ref: https://docs.microsoft.com/en-us/graph/migrate-azure-ad-graph-request-differences#basic-requests
@@ -228,7 +227,7 @@ func GetTenantID(resourceManagerEndpoint string, subscriptionID string) (string,
 	const hdrKey = "WWW-Authenticate"
 	c := subscriptions.NewClientWithBaseURI(resourceManagerEndpoint)
 
-	log.Debugf("Resolving tenantID for subscriptionID: %s", subscriptionID)
+	mlog.Debug("Resolving tenantID for subscriptionID: %s", subscriptionID)
 
 	// we expect this request to fail (err != nil), but we are only interested
 	// in headers, so surface the error if the Response is not present (i.e.

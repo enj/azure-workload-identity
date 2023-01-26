@@ -10,7 +10,6 @@ import (
 	"github.com/microsoftgraph/msgraph-beta-sdk-go/models/microsoft/graph"
 	"github.com/microsoftgraph/msgraph-beta-sdk-go/serviceprincipals"
 	"github.com/pkg/errors"
-	log "github.com/sirupsen/logrus"
 )
 
 var (
@@ -27,7 +26,7 @@ func (c *AzureClient) CreateServicePrincipal(ctx context.Context, appID string, 
 	spPostOptions.Body.SetAppId(to.StringPtr(appID))
 	spPostOptions.Body.SetTags(tags)
 
-	log.Debugf("Creating service principal for application with id=%s", appID)
+	mlog.Debug("Creating service principal for application with id=%s", appID)
 	sp, err := c.graphServiceClient.ServicePrincipals().Post(spPostOptions)
 	if err != nil {
 		return nil, err
@@ -49,7 +48,7 @@ func (c *AzureClient) CreateApplication(ctx context.Context, displayName string)
 	}
 	appPostOptions.Body.SetDisplayName(to.StringPtr(displayName))
 
-	log.Debugf("Creating application with display name=%s", displayName)
+	mlog.Debug("Creating application with display name=%s", displayName)
 	app, err := c.graphServiceClient.Applications().Post(appPostOptions)
 	if err != nil {
 		return nil, err
@@ -66,7 +65,7 @@ func (c *AzureClient) CreateApplication(ctx context.Context, displayName string)
 
 // GetServicePrincipal gets a service principal by its display name.
 func (c *AzureClient) GetServicePrincipal(ctx context.Context, displayName string) (*graph.ServicePrincipal, error) {
-	log.Debugf("Getting service principal with display name=%s", displayName)
+	mlog.Debug("Getting service principal with display name=%s", displayName)
 
 	spGetOptions := &serviceprincipals.ServicePrincipalsRequestBuilderGetOptions{
 		Q: &serviceprincipals.ServicePrincipalsRequestBuilderGetQueryParameters{
@@ -93,7 +92,7 @@ func (c *AzureClient) GetServicePrincipal(ctx context.Context, displayName strin
 
 // GetApplication gets an application by its display name.
 func (c *AzureClient) GetApplication(ctx context.Context, displayName string) (*graph.Application, error) {
-	log.Debugf("Getting application with display name=%s", displayName)
+	mlog.Debug("Getting application with display name=%s", displayName)
 
 	appGetOptions := &applications.ApplicationsRequestBuilderGetOptions{
 		Q: &applications.ApplicationsRequestBuilderGetQueryParameters{
@@ -120,19 +119,19 @@ func (c *AzureClient) GetApplication(ctx context.Context, displayName string) (*
 
 // DeleteServicePrincipal deletes a service principal.
 func (c *AzureClient) DeleteServicePrincipal(ctx context.Context, objectID string) error {
-	log.Debugf("Deleting service principal with object id=%s", objectID)
+	mlog.Debug("Deleting service principal with object id=%s", objectID)
 	return c.graphServiceClient.ServicePrincipalsById(objectID).Delete(nil)
 }
 
 // DeleteApplication deletes an application.
 func (c *AzureClient) DeleteApplication(ctx context.Context, objectID string) error {
-	log.Debugf("Deleting application with object id=%s", objectID)
+	mlog.Debug("Deleting application with object id=%s", objectID)
 	return c.graphServiceClient.ApplicationsById(objectID).Delete(nil)
 }
 
 // AddFederatedCredential adds a federated credential to the cloud provider.
 func (c *AzureClient) AddFederatedCredential(ctx context.Context, objectID string, fic *graph.FederatedIdentityCredential) error {
-	log.Debugf("Adding federated credential for objectID=%s", objectID)
+	mlog.Debug("Adding federated credential for objectID=%s", objectID)
 
 	ficPostOptions := &federatedidentitycredentials.FederatedIdentityCredentialsRequestBuilderPostOptions{
 		Body: fic,
@@ -153,7 +152,7 @@ func (c *AzureClient) AddFederatedCredential(ctx context.Context, objectID strin
 
 // GetFederatedCredential gets a federated credential from the cloud provider.
 func (c *AzureClient) GetFederatedCredential(ctx context.Context, objectID, issuer, subject string) (*graph.FederatedIdentityCredential, error) {
-	log.Debugf("Getting federated credential for objectID=%s, issuer=%s, subject=%s", objectID, issuer, subject)
+	mlog.Debug("Getting federated credential for objectID=%s, issuer=%s, subject=%s", objectID, issuer, subject)
 
 	ficGetOptions := &federatedidentitycredentials.FederatedIdentityCredentialsRequestBuilderGetOptions{
 		Q: &federatedidentitycredentials.FederatedIdentityCredentialsRequestBuilderGetQueryParameters{
@@ -183,7 +182,7 @@ func (c *AzureClient) GetFederatedCredential(ctx context.Context, objectID, issu
 
 // DeleteFederatedCredential deletes a federated credential from the cloud provider.
 func (c *AzureClient) DeleteFederatedCredential(ctx context.Context, objectID, federatedCredentialID string) error {
-	log.Debugf("Deleting federated credential for objectID=%s, federatedCredentialID=%s", objectID, federatedCredentialID)
+	mlog.Debug("Deleting federated credential for objectID=%s, federatedCredentialID=%s", objectID, federatedCredentialID)
 	return c.graphServiceClient.ApplicationsById(objectID).FederatedIdentityCredentialsById(federatedCredentialID).Delete(nil)
 }
 
