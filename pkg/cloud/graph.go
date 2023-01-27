@@ -10,6 +10,7 @@ import (
 	"github.com/microsoftgraph/msgraph-beta-sdk-go/models/microsoft/graph"
 	"github.com/microsoftgraph/msgraph-beta-sdk-go/serviceprincipals"
 	"github.com/pkg/errors"
+	"monis.app/mlog"
 )
 
 var (

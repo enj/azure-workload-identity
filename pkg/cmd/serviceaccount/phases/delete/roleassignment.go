@@ -3,11 +3,12 @@ package phases
 import (
 	"context"
 
+	"github.com/pkg/errors"
+	"monis.app/mlog"
+
 	"github.com/Azure/azure-workload-identity/pkg/cloud"
 	"github.com/Azure/azure-workload-identity/pkg/cmd/serviceaccount/options"
 	"github.com/Azure/azure-workload-identity/pkg/cmd/serviceaccount/phases/workflow"
-
-	"github.com/pkg/errors"
 )
 
 const (
@@ -48,14 +49,17 @@ func (p *roleAssignmentPhase) run(ctx context.Context, data workflow.RunData) er
 
 	// TODO(aramase): consider supporting deletion of role assignment with scope, role and application id
 	// delete the role assignment
-	l := mlog.WithValues("roleAssignmentID", deleteData.RoleAssignmentID())
+	l := mlog.WithValues(
+		"roleAssignmentID", deleteData.RoleAssignmentID(),
+		"phase", roleAssignmentPhaseName,
+	)
 	if _, err := deleteData.AzureClient().DeleteRoleAssignment(ctx, deleteData.RoleAssignmentID()); err != nil {
 		if !cloud.IsRoleAssignmentAlreadyDeleted(err) {
 			return errors.Wrap(err, "failed to delete role assignment")
 		}
-		l.Warnf("[%s] role assignment not found", roleAssignmentPhaseName)
+		l.Warning("role assignment not found")
 	} else {
-		l.Infof("[%s] deleted role assignment", roleAssignmentPhaseName)
+		l.Info("deleted role assignment")
 	}
 
 	return nil
