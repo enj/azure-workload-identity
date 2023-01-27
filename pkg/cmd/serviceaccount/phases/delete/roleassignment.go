@@ -8,7 +8,6 @@ import (
 	"github.com/Azure/azure-workload-identity/pkg/cmd/serviceaccount/phases/workflow"
 
 	"github.com/pkg/errors"
-	log "github.com/sirupsen/logrus"
 )
 
 const (
@@ -49,7 +48,7 @@ func (p *roleAssignmentPhase) run(ctx context.Context, data workflow.RunData) er
 
 	// TODO(aramase): consider supporting deletion of role assignment with scope, role and application id
 	// delete the role assignment
-	l := log.WithField("roleAssignmentID", deleteData.RoleAssignmentID())
+	l := mlog.WithValues("roleAssignmentID", deleteData.RoleAssignmentID())
 	if _, err := deleteData.AzureClient().DeleteRoleAssignment(ctx, deleteData.RoleAssignmentID()); err != nil {
 		if !cloud.IsRoleAssignmentAlreadyDeleted(err) {
 			return errors.Wrap(err, "failed to delete role assignment")
