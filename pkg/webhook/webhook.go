@@ -227,12 +227,14 @@ func (m *podMutator) injectProxySidecarContainer(containers []corev1.Container, 
 		}
 	}
 
+	logLevel := currentLogLevel() // run the proxy at the same log level as the webhook
 	containers = append(containers, corev1.Container{
 		Name:            ProxySidecarContainerName,
 		Image:           strings.Join([]string{imageRepository, ProxyImageVersion}, ":"),
 		ImagePullPolicy: corev1.PullIfNotPresent,
 		Args: []string{
 			fmt.Sprintf("--proxy-port=%d", proxyPort),
+			fmt.Sprintf("--log-level=%s", logLevel),
 		},
 		Ports: []corev1.ContainerPort{{
 			ContainerPort: proxyPort,
@@ -244,6 +246,7 @@ func (m *podMutator) injectProxySidecarContainer(containers []corev1.Container, 
 						"/proxy",
 						fmt.Sprintf("--proxy-port=%d", proxyPort),
 						"--probe",
+						fmt.Sprintf("--log-level=%s", logLevel),
 					},
 				},
 			},
@@ -432,4 +435,20 @@ func getAzureAuthorityHost(c *config.Config) (string, error) {
 		env, err = azure.EnvironmentFromName(c.Cloud)
 	}
 	return env.ActiveDirectoryEndpoint, err
+}
+
+func currentLogLevel() string {
+	for _, level := range []mlog.LogLevel{
+		// iterate in reverse order
+		mlog.LevelAll,
+		mlog.LevelTrace,
+		mlog.LevelDebug,
+		mlog.LevelInfo,
+		mlog.LevelWarning,
+	} {
+		if mlog.Enabled(level) {
+			return string(level)
+		}
+	}
+	return "" // this is unreachable
 }
