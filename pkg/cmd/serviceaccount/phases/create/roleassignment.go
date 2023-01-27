@@ -6,9 +6,9 @@ import (
 	"github.com/Azure/azure-workload-identity/pkg/cloud"
 	"github.com/Azure/azure-workload-identity/pkg/cmd/serviceaccount/options"
 	"github.com/Azure/azure-workload-identity/pkg/cmd/serviceaccount/phases/workflow"
+	"monis.app/mlog"
 
 	"github.com/pkg/errors"
-	log "github.com/sirupsen/logrus"
 )
 
 const (
@@ -62,23 +62,23 @@ func (p *roleAssignmentPhase) run(ctx context.Context, data workflow.RunData) er
 	ra, err := createData.AzureClient().CreateRoleAssignment(ctx, createData.AzureScope(), createData.AzureRole(), createData.ServicePrincipalObjectID())
 	if err != nil {
 		if cloud.IsAlreadyExists(err) {
-			log.WithFields(log.Fields{
-				"scope":                    createData.AzureScope(),
-				"role":                     createData.AzureRole(),
-				"servicePrincipalObjectID": createData.ServicePrincipalObjectID(),
-				"roleAssignmentID":         ra.ID,
-			}).Debugf("[%s] role assignment has previously been created", roleAssignmentPhaseName)
+			mlog.WithValues(
+				"scope", createData.AzureScope(),
+				"role", createData.AzureRole(),
+				"servicePrincipalObjectID", createData.ServicePrincipalObjectID(),
+				"roleAssignmentID", ra.ID,
+			).Debug("[%s] role assignment has previously been created", roleAssignmentPhaseName)
 		} else {
 			return errors.Wrap(err, "failed to create role assignment")
 		}
 	}
 
-	log.WithFields(log.Fields{
-		"scope":                    createData.AzureScope(),
-		"role":                     createData.AzureRole(),
-		"servicePrincipalObjectID": createData.ServicePrincipalObjectID(),
-		"roleAssignmentID":         ra.ID,
-	}).Infof("[%s] created role assignment", roleAssignmentPhaseName)
+	mlog.WithValues(
+		"scope", createData.AzureScope(),
+		"role", createData.AzureRole(),
+		"servicePrincipalObjectID", createData.ServicePrincipalObjectID(),
+		"roleAssignmentID", ra.ID,
+	).Info("[%s] created role assignment", roleAssignmentPhaseName)
 
 	return nil
 }
