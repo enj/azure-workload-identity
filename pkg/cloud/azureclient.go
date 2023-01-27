@@ -3,14 +3,17 @@ package cloud
 import (
 	"context"
 	"crypto/rsa"
+	"crypto/tls"
 	"crypto/x509"
 	"encoding/pem"
 	"fmt"
+	"net"
 	"net/http"
 	"os"
 	"regexp"
 	"time"
 
+	"github.com/Azure/azure-sdk-for-go/sdk/azcore"
 	"github.com/Azure/azure-sdk-for-go/sdk/azidentity"
 	"github.com/Azure/azure-sdk-for-go/services/preview/authorization/mgmt/2018-01-01-preview/authorization"
 	"github.com/Azure/azure-sdk-for-go/services/resources/mgmt/2016-06-01/subscriptions"
@@ -23,6 +26,7 @@ import (
 	msgraphbetasdk "github.com/microsoftgraph/msgraph-beta-sdk-go"
 	"github.com/microsoftgraph/msgraph-beta-sdk-go/models/microsoft/graph"
 	"github.com/pkg/errors"
+	"k8s.io/client-go/transport"
 	"monis.app/mlog"
 )
 
@@ -106,7 +110,12 @@ func NewAzureClientWithClientSecret(env azure.Environment, subscriptionID, clien
 		return nil, err
 	}
 
-	cred, err := azidentity.NewClientSecretCredential(tenantID, clientID, clientSecret, nil)
+	cred, err := azidentity.NewClientSecretCredential(tenantID, clientID, clientSecret,
+		&azidentity.ClientSecretCredentialOptions{
+			ClientOptions: azcore.ClientOptions{
+				Transport: defaultHTTPClient,
+			},
+		})
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to create credential")
 	}
@@ -153,16 +162,6 @@ func NewAzureClientWithClientCertificate(env azure.Environment, subscriptionID, 
 	return newAzureClientWithCertificate(env, oauthConfig, subscriptionID, clientID, tenantID, certificate, privateKey)
 }
 
-// NewAzureClientWithClientCertificateExternalTenant returns an AzureClient via client_id and jwt certificate assertion against a 3rd party tenant
-func NewAzureClientWithClientCertificateExternalTenant(env azure.Environment, subscriptionID, tenantID, clientID string, certificate *x509.Certificate, privateKey *rsa.PrivateKey) (*AzureClient, error) {
-	oauthConfig, err := adal.NewOAuthConfig(env.ActiveDirectoryEndpoint, tenantID)
-	if err != nil {
-		return nil, err
-	}
-
-	return newAzureClientWithCertificate(env, oauthConfig, subscriptionID, clientID, tenantID, certificate, privateKey)
-}
-
 func getOAuthConfig(env azure.Environment, subscriptionID, tenantID string) (*adal.OAuthConfig, string, error) {
 	oauthConfig, err := adal.NewOAuthConfig(env.ActiveDirectoryEndpoint, tenantID)
 	if err != nil {
@@ -186,7 +185,12 @@ func newAzureClientWithCertificate(env azure.Environment, oauthConfig *adal.OAut
 		return nil, err
 	}
 
-	cred, err := azidentity.NewClientCertificateCredential(tenantID, clientID, []*x509.Certificate{certificate}, privateKey, nil)
+	cred, err := azidentity.NewClientCertificateCredential(tenantID, clientID, []*x509.Certificate{certificate}, privateKey,
+		&azidentity.ClientCertificateCredentialOptions{
+			ClientOptions: azcore.ClientOptions{
+				Transport: defaultHTTPClient,
+			},
+		})
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to create credential")
 	}
@@ -199,7 +203,7 @@ func newAzureClientWithCertificate(env azure.Environment, oauthConfig *adal.OAut
 }
 
 func getClient(env azure.Environment, subscriptionID, tenantID string, armAuthorizer autorest.Authorizer, auth authentication.AuthenticationProvider) (*AzureClient, error) {
-	adapter, err := msgraphbetasdk.NewGraphRequestAdapter(auth)
+	adapter, err := msgraphbetasdk.NewGraphRequestAdapterWithParseNodeFactoryAndSerializationWriterFactoryAndHttpClient(auth, nil, nil, defaultHTTPClient)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to create request adapter")
 	}
@@ -210,6 +214,7 @@ func getClient(env azure.Environment, subscriptionID, tenantID string, armAuthor
 
 		graphServiceClient: msgraphbetasdk.NewGraphServiceClient(adapter),
 
+		// TODO still need to fix the http client in these two
 		roleAssignmentsClient: authorization.NewRoleAssignmentsClientWithBaseURI(env.ResourceManagerEndpoint, subscriptionID),
 		roleDefinitionsClient: authorization.NewRoleDefinitionsClientWithBaseURI(env.ResourceManagerEndpoint, subscriptionID),
 	}
@@ -228,7 +233,7 @@ func GetTenantID(resourceManagerEndpoint string, subscriptionID string) (string,
 	const hdrKey = "WWW-Authenticate"
 	c := subscriptions.NewClientWithBaseURI(resourceManagerEndpoint)
 
-	mlog.Debug("Resolving tenantID for subscriptionID: %s", subscriptionID)
+	mlog.Debug("Resolving tenantID", "subscriptionID", subscriptionID)
 
 	// we expect this request to fail (err != nil), but we are only interested
 	// in headers, so surface the error if the Response is not present (i.e.
@@ -289,4 +294,24 @@ func parseRsaPrivateKey(path string) (*rsa.PrivateKey, error) {
 
 func getGraphScope(env azure.Environment) string {
 	return fmt.Sprintf("%s.default", msGraphEndpoint[env])
+}
+
+var defaultHTTPClient = &http.Client{
+	// TODO copy safe wrapper from pinniped
+	// TODO still need to fix kubeclient
+	Transport: transport.DebugWrappers(&http.Transport{
+		Proxy: http.ProxyFromEnvironment,
+		DialContext: (&net.Dialer{
+			Timeout:   30 * time.Second,
+			KeepAlive: 30 * time.Second,
+		}).DialContext,
+		ForceAttemptHTTP2:     true,
+		MaxIdleConns:          100,
+		IdleConnTimeout:       90 * time.Second,
+		TLSHandshakeTimeout:   10 * time.Second,
+		ExpectContinueTimeout: 1 * time.Second,
+		TLSClientConfig: &tls.Config{
+			MinVersion: tls.VersionTLS12,
+		},
+	}),
 }
