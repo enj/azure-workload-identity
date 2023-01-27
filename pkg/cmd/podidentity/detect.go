@@ -11,7 +11,6 @@ import (
 
 	aadpodv1 "github.com/Azure/aad-pod-identity/pkg/apis/aadpodidentity/v1"
 	"github.com/pkg/errors"
-	log "github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 	appsv1 "k8s.io/api/apps/v1"
 	batchv1 "k8s.io/api/batch/v1"
@@ -43,8 +42,7 @@ const (
 	proxyInitContainerName = "azwi-proxy-init"
 	proxyContainerName     = "azwi-proxy"
 
-	nextStepsLogMessage = `
-Next steps:
+	nextStepsLogMessage = `Next steps:
 1. Install the Azure Workload Identity Webhook. Refer to https://azure.github.io/azure-workload-identity/docs/installation.html.
 2. Create federated identity credential for all identities used in this namespace. Refer to https://azure.github.io/azure-workload-identity/docs/topics/federated-identity-credential.html.
 3. Review the generated config files and apply them with 'kubectl apply -f <generated file>'.`
@@ -221,7 +219,8 @@ func (dc *detectCmd) run() error {
 		return nil
 	}
 
-	log.Infof("generated resource and service account files in output directory: %s\n%s", dc.outputDir, nextStepsLogMessage)
+	mlog.Info("generated resource and service account files", "directory", dc.outputDir)
+	mlog.Info(nextStepsLogMessage)
 	return nil
 }
 

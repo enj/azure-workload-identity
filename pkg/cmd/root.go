@@ -31,7 +31,8 @@ func NewRootCmd() *cobra.Command {
 		Short: rootShortDescription,
 		Long:  rootLongDescription,
 		PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
-			logLevel := mlog.LevelWarning
+			// default to info instead of warning because existing info logs expect to always be printed
+			logLevel := mlog.LevelInfo
 			if debug {
 				logLevel = mlog.LevelAll
 			}
