@@ -192,6 +192,10 @@ func getHomeDir() string {
 
 // TODO remove global
 var defaultHTTPClient2 = &http.Client{
+	// TODO phase -> logger name
+	// TODO fix %s formating
+	// TODO wire debug wrappers to clients
+
 	// TODO copy safe wrapper from pinniped (maybe)
 	// TODO still need to fix kubeclient
 	// TODO come this with stb lib and pinniped and use Clone on default transport
