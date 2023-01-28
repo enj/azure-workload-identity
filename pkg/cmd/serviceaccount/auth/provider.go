@@ -1,10 +1,15 @@
 package auth
 
 import (
+	"crypto/tls"
+	"net"
+	"net/http"
 	"os"
 	"path/filepath"
 	"runtime"
+	"time"
 
+	"k8s.io/client-go/transport"
 	"monis.app/mlog"
 
 	"github.com/Azure/azure-workload-identity/pkg/cloud"
@@ -119,11 +124,11 @@ func (a *authArgs) Validate() error {
 
 	switch a.authMethod {
 	case cliAuthMethod:
-		a.azureClient, err = cloud.NewAzureClientWithCLI(env, a.subscriptionID.String(), a.tenantID)
+		a.azureClient, err = cloud.NewAzureClientWithCLI(env, a.subscriptionID.String(), a.tenantID, defaultHTTPClient2)
 	case clientSecretAuthMethod:
-		a.azureClient, err = cloud.NewAzureClientWithClientSecret(env, a.subscriptionID.String(), a.clientID.String(), a.clientSecret, a.tenantID)
+		a.azureClient, err = cloud.NewAzureClientWithClientSecret(env, a.subscriptionID.String(), a.clientID.String(), a.clientSecret, a.tenantID, defaultHTTPClient2)
 	case clientCertificateAuthMethod:
-		a.azureClient, err = cloud.NewAzureClientWithClientCertificateFile(env, a.subscriptionID.String(), a.clientID.String(), a.tenantID, a.certificatePath, a.privateKeyPath)
+		a.azureClient, err = cloud.NewAzureClientWithClientCertificateFile(env, a.subscriptionID.String(), a.clientID.String(), a.tenantID, a.certificatePath, a.privateKeyPath, defaultHTTPClient2)
 	default:
 		err = errors.Errorf("--auth-method: ERROR: method unsupported. method=%q", a.authMethod)
 	}
@@ -183,4 +188,26 @@ func getHomeDir() string {
 		return home
 	}
 	return os.Getenv("HOME")
+}
+
+// TODO remove global
+var defaultHTTPClient2 = &http.Client{
+	// TODO copy safe wrapper from pinniped (maybe)
+	// TODO still need to fix kubeclient
+	// TODO come this with stb lib and pinniped and use Clone on default transport
+	Transport: transport.DebugWrappers(&http.Transport{
+		Proxy: http.ProxyFromEnvironment,
+		DialContext: (&net.Dialer{
+			Timeout:   30 * time.Second,
+			KeepAlive: 30 * time.Second,
+		}).DialContext,
+		ForceAttemptHTTP2:     true,
+		MaxIdleConns:          100,
+		IdleConnTimeout:       90 * time.Second,
+		TLSHandshakeTimeout:   10 * time.Second,
+		ExpectContinueTimeout: 1 * time.Second,
+		TLSClientConfig: &tls.Config{
+			MinVersion: tls.VersionTLS12,
+		},
+	}),
 }

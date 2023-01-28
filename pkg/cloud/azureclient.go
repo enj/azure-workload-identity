@@ -3,11 +3,9 @@ package cloud
 import (
 	"context"
 	"crypto/rsa"
-	"crypto/tls"
 	"crypto/x509"
 	"encoding/pem"
 	"fmt"
-	"net"
 	"net/http"
 	"os"
 	"regexp"
@@ -26,7 +24,6 @@ import (
 	msgraphbetasdk "github.com/microsoftgraph/msgraph-beta-sdk-go"
 	"github.com/microsoftgraph/msgraph-beta-sdk-go/models/microsoft/graph"
 	"github.com/pkg/errors"
-	"k8s.io/client-go/transport"
 	"monis.app/mlog"
 )
 
@@ -70,7 +67,7 @@ type AzureClient struct {
 }
 
 // NewAzureClientWithCLI creates an AzureClient configured from Azure CLI 2.0 for local development scenarios.
-func NewAzureClientWithCLI(env azure.Environment, subscriptionID, tenantID string) (*AzureClient, error) {
+func NewAzureClientWithCLI(env azure.Environment, subscriptionID, tenantID string, client *http.Client) (*AzureClient, error) {
 	_, tenantID, err := getOAuthConfig(env, subscriptionID, tenantID)
 	if err != nil {
 		return nil, err
@@ -95,11 +92,11 @@ func NewAzureClientWithCLI(env azure.Environment, subscriptionID, tenantID strin
 		return nil, errors.Wrap(err, "failed to create authentication provider")
 	}
 
-	return getClient(env, subscriptionID, tenantID, autorest.NewBearerAuthorizer(&adalToken), auth)
+	return getClient(env, subscriptionID, tenantID, autorest.NewBearerAuthorizer(&adalToken), auth, client)
 }
 
 // NewAzureClientWithClientSecret returns an AzureClient via client_id and client_secret
-func NewAzureClientWithClientSecret(env azure.Environment, subscriptionID, clientID, clientSecret, tenantID string) (*AzureClient, error) {
+func NewAzureClientWithClientSecret(env azure.Environment, subscriptionID, clientID, clientSecret, tenantID string, client *http.Client) (*AzureClient, error) {
 	oauthConfig, tenantID, err := getOAuthConfig(env, subscriptionID, tenantID)
 	if err != nil {
 		return nil, err
@@ -113,7 +110,7 @@ func NewAzureClientWithClientSecret(env azure.Environment, subscriptionID, clien
 	cred, err := azidentity.NewClientSecretCredential(tenantID, clientID, clientSecret,
 		&azidentity.ClientSecretCredentialOptions{
 			ClientOptions: azcore.ClientOptions{
-				Transport: defaultHTTPClient,
+				Transport: client,
 			},
 		})
 	if err != nil {
@@ -124,11 +121,11 @@ func NewAzureClientWithClientSecret(env azure.Environment, subscriptionID, clien
 		return nil, errors.Wrap(err, "failed to create authentication provider")
 	}
 
-	return getClient(env, subscriptionID, tenantID, autorest.NewBearerAuthorizer(armSpt), auth)
+	return getClient(env, subscriptionID, tenantID, autorest.NewBearerAuthorizer(armSpt), auth, client)
 }
 
 // NewAzureClientWithClientCertificateFile returns an AzureClient via client_id and jwt certificate assertion
-func NewAzureClientWithClientCertificateFile(env azure.Environment, subscriptionID, clientID, tenantID, certificatePath, privateKeyPath string) (*AzureClient, error) {
+func NewAzureClientWithClientCertificateFile(env azure.Environment, subscriptionID, clientID, tenantID, certificatePath, privateKeyPath string, client *http.Client) (*AzureClient, error) {
 	certificateData, err := os.ReadFile(certificatePath)
 	if err != nil {
 		return nil, errors.Wrap(err, "Failed to read certificate")
@@ -149,17 +146,17 @@ func NewAzureClientWithClientCertificateFile(env azure.Environment, subscription
 		return nil, errors.Wrap(err, "Failed to parse rsa private key")
 	}
 
-	return NewAzureClientWithClientCertificate(env, subscriptionID, clientID, tenantID, certificate, privateKey)
+	return NewAzureClientWithClientCertificate(env, subscriptionID, clientID, tenantID, certificate, privateKey, client)
 }
 
 // NewAzureClientWithClientCertificate returns an AzureClient via client_id and jwt certificate assertion
-func NewAzureClientWithClientCertificate(env azure.Environment, subscriptionID, clientID, tenantID string, certificate *x509.Certificate, privateKey *rsa.PrivateKey) (*AzureClient, error) {
+func NewAzureClientWithClientCertificate(env azure.Environment, subscriptionID, clientID, tenantID string, certificate *x509.Certificate, privateKey *rsa.PrivateKey, client *http.Client) (*AzureClient, error) {
 	oauthConfig, tenantID, err := getOAuthConfig(env, subscriptionID, tenantID)
 	if err != nil {
 		return nil, err
 	}
 
-	return newAzureClientWithCertificate(env, oauthConfig, subscriptionID, clientID, tenantID, certificate, privateKey)
+	return newAzureClientWithCertificate(env, oauthConfig, subscriptionID, clientID, tenantID, certificate, privateKey, client)
 }
 
 func getOAuthConfig(env azure.Environment, subscriptionID, tenantID string) (*adal.OAuthConfig, string, error) {
@@ -171,7 +168,7 @@ func getOAuthConfig(env azure.Environment, subscriptionID, tenantID string) (*ad
 	return oauthConfig, tenantID, nil
 }
 
-func newAzureClientWithCertificate(env azure.Environment, oauthConfig *adal.OAuthConfig, subscriptionID, clientID, tenantID string, certificate *x509.Certificate, privateKey *rsa.PrivateKey) (*AzureClient, error) {
+func newAzureClientWithCertificate(env azure.Environment, oauthConfig *adal.OAuthConfig, subscriptionID, clientID, tenantID string, certificate *x509.Certificate, privateKey *rsa.PrivateKey, client *http.Client) (*AzureClient, error) {
 	if certificate == nil {
 		return nil, errors.New("certificate should not be nil")
 	}
@@ -188,7 +185,7 @@ func newAzureClientWithCertificate(env azure.Environment, oauthConfig *adal.OAut
 	cred, err := azidentity.NewClientCertificateCredential(tenantID, clientID, []*x509.Certificate{certificate}, privateKey,
 		&azidentity.ClientCertificateCredentialOptions{
 			ClientOptions: azcore.ClientOptions{
-				Transport: defaultHTTPClient,
+				Transport: client,
 			},
 		})
 	if err != nil {
@@ -199,11 +196,11 @@ func newAzureClientWithCertificate(env azure.Environment, oauthConfig *adal.OAut
 		return nil, errors.Wrap(err, "failed to create authentication provider")
 	}
 
-	return getClient(env, subscriptionID, tenantID, autorest.NewBearerAuthorizer(armSpt), auth)
+	return getClient(env, subscriptionID, tenantID, autorest.NewBearerAuthorizer(armSpt), auth, client)
 }
 
-func getClient(env azure.Environment, subscriptionID, tenantID string, armAuthorizer autorest.Authorizer, auth authentication.AuthenticationProvider) (*AzureClient, error) {
-	adapter, err := msgraphbetasdk.NewGraphRequestAdapterWithParseNodeFactoryAndSerializationWriterFactoryAndHttpClient(auth, nil, nil, defaultHTTPClient)
+func getClient(env azure.Environment, subscriptionID, tenantID string, armAuthorizer autorest.Authorizer, auth authentication.AuthenticationProvider, client *http.Client) (*AzureClient, error) {
+	adapter, err := msgraphbetasdk.NewGraphRequestAdapterWithParseNodeFactoryAndSerializationWriterFactoryAndHttpClient(auth, nil, nil, client)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to create request adapter")
 	}
@@ -214,13 +211,15 @@ func getClient(env azure.Environment, subscriptionID, tenantID string, armAuthor
 
 		graphServiceClient: msgraphbetasdk.NewGraphServiceClient(adapter),
 
-		// TODO still need to fix the http client in these two
 		roleAssignmentsClient: authorization.NewRoleAssignmentsClientWithBaseURI(env.ResourceManagerEndpoint, subscriptionID),
 		roleDefinitionsClient: authorization.NewRoleDefinitionsClientWithBaseURI(env.ResourceManagerEndpoint, subscriptionID),
 	}
 
 	azClient.roleAssignmentsClient.Authorizer = armAuthorizer
 	azClient.roleDefinitionsClient.Authorizer = armAuthorizer
+
+	azClient.roleAssignmentsClient.Sender = client
+	azClient.roleDefinitionsClient.Sender = client
 
 	return azClient, nil
 }
@@ -294,24 +293,4 @@ func parseRsaPrivateKey(path string) (*rsa.PrivateKey, error) {
 
 func getGraphScope(env azure.Environment) string {
 	return fmt.Sprintf("%s.default", msGraphEndpoint[env])
-}
-
-var defaultHTTPClient = &http.Client{
-	// TODO copy safe wrapper from pinniped
-	// TODO still need to fix kubeclient
-	Transport: transport.DebugWrappers(&http.Transport{
-		Proxy: http.ProxyFromEnvironment,
-		DialContext: (&net.Dialer{
-			Timeout:   30 * time.Second,
-			KeepAlive: 30 * time.Second,
-		}).DialContext,
-		ForceAttemptHTTP2:     true,
-		MaxIdleConns:          100,
-		IdleConnTimeout:       90 * time.Second,
-		TLSHandshakeTimeout:   10 * time.Second,
-		ExpectContinueTimeout: 1 * time.Second,
-		TLSClientConfig: &tls.Config{
-			MinVersion: tls.VersionTLS12,
-		},
-	}),
 }
