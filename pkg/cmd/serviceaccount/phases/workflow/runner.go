@@ -130,7 +130,7 @@ func (r *runner) Run(data RunData) error {
 	filtered := []Phase{}
 	for _, phase := range r.phases {
 		if skipPhases[phase.Name] {
-			mlog.WithValues("phase", phase.Name).Info("skipping phase")
+			mlog.WithName(phase.Name).Info("skipping phase")
 			continue
 		}
 		filtered = append(filtered, phase)

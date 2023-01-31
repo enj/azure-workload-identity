@@ -64,8 +64,7 @@ func (p *serviceAccountPhase) run(ctx context.Context, data workflow.RunData) er
 	l := mlog.WithValues(
 		"namespace", deleteData.ServiceAccountNamespace(),
 		"name", deleteData.ServiceAccountName(),
-		"phase", serviceAccountPhaseName,
-	)
+	).WithName(serviceAccountPhaseName)
 	err := kuberneteshelper.DeleteServiceAccount(
 		ctx,
 		p.kubeClient,

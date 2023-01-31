@@ -84,8 +84,7 @@ func (p *federatedIdentityPhase) run(ctx context.Context, data workflow.RunData)
 			mlog.WithValues(
 				"objectID", objectID,
 				"subject", subject,
-				"phase", federatedIdentityPhaseName,
-			).Debug("federated credential has been previously created")
+			).WithName(federatedIdentityPhaseName).Debug("federated credential has been previously created")
 		} else {
 			return errors.Wrap(err, "failed to add federated credential")
 		}
@@ -94,8 +93,7 @@ func (p *federatedIdentityPhase) run(ctx context.Context, data workflow.RunData)
 	mlog.WithValues(
 		"objectID", objectID,
 		"subject", subject,
-		"phase", federatedIdentityPhaseName,
-	).Info("added federated credential")
+	).WithName(federatedIdentityPhaseName).Info("added federated credential")
 
 	return nil
 }

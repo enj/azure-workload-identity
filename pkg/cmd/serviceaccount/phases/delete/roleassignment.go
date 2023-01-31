@@ -51,8 +51,7 @@ func (p *roleAssignmentPhase) run(ctx context.Context, data workflow.RunData) er
 	// delete the role assignment
 	l := mlog.WithValues(
 		"roleAssignmentID", deleteData.RoleAssignmentID(),
-		"phase", roleAssignmentPhaseName,
-	)
+	).WithName(roleAssignmentPhaseName)
 	if _, err := deleteData.AzureClient().DeleteRoleAssignment(ctx, deleteData.RoleAssignmentID()); err != nil {
 		if !cloud.IsRoleAssignmentAlreadyDeleted(err) {
 			return errors.Wrap(err, "failed to delete role assignment")

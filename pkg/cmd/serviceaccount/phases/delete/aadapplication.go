@@ -52,8 +52,7 @@ func (p *aadApplicationPhase) run(ctx context.Context, data workflow.RunData) er
 	l := mlog.WithValues(
 		"name", deleteData.AADApplicationName(),
 		"objectID", deleteData.AADApplicationObjectID(),
-		"phase", aadApplicationPhaseName,
-	)
+	).WithName(aadApplicationPhaseName)
 	if err := deleteData.AzureClient().DeleteApplication(ctx, deleteData.AADApplicationObjectID()); err != nil {
 		return errors.Wrap(err, "failed to delete application")
 	}

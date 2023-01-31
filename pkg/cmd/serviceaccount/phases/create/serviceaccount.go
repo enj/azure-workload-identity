@@ -91,8 +91,7 @@ func (p *serviceAccountPhase) run(ctx context.Context, data workflow.RunData) er
 	mlog.WithValues(
 		"namespace", createData.ServiceAccountNamespace(),
 		"name", createData.ServiceAccountName(),
-		"phase", serviceAccountPhaseName,
-	).Info("created kubernetes service account")
+	).WithName(serviceAccountPhaseName).Info("created kubernetes service account")
 
 	return nil
 }
