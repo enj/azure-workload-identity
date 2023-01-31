@@ -192,7 +192,6 @@ func getHomeDir() string {
 
 // TODO remove global
 var defaultHTTPClient2 = &http.Client{
-	// TODO fix %s formating
 	// TODO wire debug wrappers to clients
 
 	// TODO copy safe wrapper from pinniped (maybe)

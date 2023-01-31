@@ -27,7 +27,8 @@ func (c *AzureClient) CreateRoleAssignment(ctx context.Context, scope, roleName,
 
 	mlog.Debug("Creating role assignment",
 		"principal id", principalID,
-		"role", roleName)
+		"role", roleName,
+	)
 	parameters := authorization.RoleAssignmentCreateParameters{
 		RoleAssignmentProperties: &authorization.RoleAssignmentProperties{
 			RoleDefinitionID: roleDefinitionID.ID,
