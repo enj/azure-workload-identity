@@ -55,7 +55,7 @@ func (jc *jwksCmd) validate() error {
 }
 
 func (jc *jwksCmd) run() error {
-	mlog.Debug("generating JSON Web Key Set for public keys: %v", jc.publicKeys)
+	mlog.Debug("generating JSON Web Key Set", "public keys", jc.publicKeys)
 
 	var pubKeys []interface{}
 	for _, file := range jc.publicKeys {
@@ -80,7 +80,7 @@ func (jc *jwksCmd) run() error {
 		if err = os.WriteFile(jc.outputFile, keysetJSON, 0600); err != nil {
 			return errors.Wrap(err, "failed to write JWKS to file")
 		}
-		mlog.Debug("wrote JWKS to file: %v", jc.outputFile)
+		mlog.Debug("wrote JWKS", "file", jc.outputFile)
 		return nil
 	}
 

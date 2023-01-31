@@ -25,7 +25,9 @@ func (c *AzureClient) CreateRoleAssignment(ctx context.Context, scope, roleName,
 		return result, errors.Wrapf(err, "failed to get role definition id for role %s", roleName)
 	}
 
-	mlog.Debug("Creating role assignment for principalID=%s with role=%s", principalID, roleName)
+	mlog.Debug("Creating role assignment",
+		"principal id", principalID,
+		"role", roleName)
 	parameters := authorization.RoleAssignmentCreateParameters{
 		RoleAssignmentProperties: &authorization.RoleAssignmentProperties{
 			RoleDefinitionID: roleDefinitionID.ID,
@@ -52,6 +54,6 @@ func (c *AzureClient) CreateRoleAssignment(ctx context.Context, scope, roleName,
 
 // DeleteRoleAssignment deletes a role assignment.
 func (c *AzureClient) DeleteRoleAssignment(ctx context.Context, roleAssignmentID string) (authorization.RoleAssignment, error) {
-	mlog.Debug("Deleting role assignment with id=%s", roleAssignmentID)
+	mlog.Debug("Deleting role assignment", "id", roleAssignmentID)
 	return c.roleAssignmentsClient.DeleteByID(ctx, roleAssignmentID)
 }

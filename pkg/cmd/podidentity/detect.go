@@ -128,7 +128,7 @@ func (dc *detectCmd) prerun() error {
 }
 
 func (dc *detectCmd) run() error {
-	mlog.Debug("detecting aad-pod-identity configuration in namespace: %s", dc.namespace)
+	mlog.Debug("detecting aad-pod-identity configuration", "namespace", dc.namespace)
 
 	// Implementing force namespaced mode
 	// 1. Get AzureIdentityBinding in the namespace
@@ -157,13 +157,17 @@ func (dc *detectCmd) run() error {
 	}
 
 	labelsToAzureIdentityMap := filterAzureIdentities(azureIdentityBindings, azureIdentityMap)
-	mlog.Debug("found %d valid aad-pod-identity bindings", len(labelsToAzureIdentityMap))
+	if count := len(labelsToAzureIdentityMap); count > 0 {
+		mlog.Debug("found valid aad-pod-identity bindings", "count", count)
+	} else {
+		mlog.Debug("did not find any valid aad-pod-identity bindings")
+	}
 
 	ownerReferences := make(map[metav1.OwnerReference]string)
 	results := make(map[client.Object]string)
 
 	for selector, azureIdentity := range labelsToAzureIdentityMap {
-		mlog.Debug("getting pods with selector: %s", selector)
+		mlog.Debug("getting pods", "selector", selector)
 		pods, err := kuberneteshelper.ListPods(context.TODO(), dc.kubeClient, dc.namespace, map[string]string{aadpodv1.CRDLabelKey: selector})
 		if err != nil {
 			return err
@@ -211,11 +215,15 @@ func (dc *detectCmd) run() error {
 		if err = dc.createResourceFile(localObject, sa); err != nil {
 			return err
 		}
-		mlog.Debug("generated config for %s/%s, clientID: %s", strings.ToLower(localObject.GetObjectKind().GroupVersionKind().Kind), localObject.GetName(), clientID)
+		mlog.Debug("generated config",
+			"kind", strings.ToLower(localObject.GetObjectKind().GroupVersionKind().Kind),
+			"name", localObject.GetName(),
+			"clientID", clientID,
+		)
 	}
 
 	if len(results) == 0 {
-		mlog.Debug("no aad-pod-identity configuration found in namespace: %s", dc.namespace)
+		mlog.Debug("no aad-pod-identity configuration found", "namespace", dc.namespace)
 		return nil
 	}
 
@@ -236,7 +244,7 @@ func (dc *detectCmd) createServiceAccountFile(name, ownerName, clientID string) 
 	sa := &corev1.ServiceAccount{}
 	var err error
 	if name == "" || name == "default" {
-		mlog.Debug("%s is using default service account, generating a new service account", ownerName)
+		mlog.Debug("generating a new service account instead of using default service account", "owner", ownerName)
 		// generate a new service account yaml file with owner name as service account name
 		sa.SetName(ownerName)
 		sa.SetNamespace(dc.namespace)
@@ -397,7 +405,7 @@ func (dc *detectCmd) addProxyContainer(containers []corev1.Container) []corev1.C
 // getOwner returns the owner of the resource
 // It makes a recursive call to get the top level owner of the resource
 func (dc *detectCmd) getOwner(ownerRef metav1.OwnerReference) (owner client.Object, err error) {
-	mlog.Debug("getting owner reference: %s", ownerRef.Name)
+	mlog.Debug("getting owner reference", "name", ownerRef.Name)
 	or, err := dc.getOwnerObject(ownerRef)
 	if err != nil {
 		return nil, err
@@ -457,7 +465,10 @@ func filterAzureIdentities(bindings []aadpodv1.AzureIdentityBinding, identities 
 		// AzureIdentityBinding with the selector. The workload will use the client id of the specific identity
 		// to get a token and will not really use the AZURE_CLIENT_ID environment variable.
 		if b, ok := labelsToAzureIdentityMap[binding.Spec.Selector]; ok {
-			mlog.Debug("multiple AzureIdentityBinding with same selector: %s found, using the first one: %s", binding.Spec.Selector, b.Name)
+			mlog.Debug("multiple AzureIdentityBinding found, using the first one",
+				"selector", binding.Spec.Selector,
+				"binding", b.Name,
+			)
 			continue
 		}
 		if azureIdentity, ok := identities[binding.Spec.AzureIdentity]; ok {

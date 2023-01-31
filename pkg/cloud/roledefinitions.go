@@ -11,7 +11,7 @@ import (
 
 // GetRoleDefinitionIDByName returns the role definition ID for the given role name.
 func (c *AzureClient) GetRoleDefinitionIDByName(ctx context.Context, scope, roleName string) (authorization.RoleDefinition, error) {
-	mlog.Debug("Get role definition ID by name=%s", roleName)
+	mlog.Debug("Get role definition ID", "name", roleName)
 
 	roleDefinitionList, err := c.roleDefinitionsClient.List(ctx, scope, getRoleNameFilter(roleName))
 	if err != nil {
