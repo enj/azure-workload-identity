@@ -3,12 +3,12 @@ package phases
 import (
 	"context"
 
+	"github.com/pkg/errors"
+	"monis.app/mlog"
+
 	"github.com/Azure/azure-workload-identity/pkg/cloud"
 	"github.com/Azure/azure-workload-identity/pkg/cmd/serviceaccount/options"
 	"github.com/Azure/azure-workload-identity/pkg/cmd/serviceaccount/phases/workflow"
-	"monis.app/mlog"
-
-	"github.com/pkg/errors"
 )
 
 const (
@@ -67,7 +67,7 @@ func (p *roleAssignmentPhase) run(ctx context.Context, data workflow.RunData) er
 				"role", createData.AzureRole(),
 				"servicePrincipalObjectID", createData.ServicePrincipalObjectID(),
 				"roleAssignmentID", ra.ID,
-			).Debug("[%s] role assignment has previously been created", roleAssignmentPhaseName)
+			).WithName(roleAssignmentPhaseName).Debug("role assignment has previously been created")
 		} else {
 			return errors.Wrap(err, "failed to create role assignment")
 		}
@@ -78,7 +78,7 @@ func (p *roleAssignmentPhase) run(ctx context.Context, data workflow.RunData) er
 		"role", createData.AzureRole(),
 		"servicePrincipalObjectID", createData.ServicePrincipalObjectID(),
 		"roleAssignmentID", ra.ID,
-	).Info("[%s] created role assignment", roleAssignmentPhaseName)
+	).WithName(roleAssignmentPhaseName).Info("created role assignment")
 
 	return nil
 }
