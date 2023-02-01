@@ -73,11 +73,15 @@ func defaultClient() *http.Client {
 
 func defaultTransport() *http.Transport {
 	baseRT := http.DefaultTransport.(*http.Transport).Clone()
-	utilnet.SetTransportDefaults(baseRT)
-	baseRT.MaxIdleConnsPerHost = 25       // copied from client-go
-	baseRT.TLSClientConfig = &tls.Config{ // TODO compare with pinniped and client-go
-		MinVersion: tls.VersionTLS12,
+	baseRT.MaxIdleConnsPerHost = 25 // copied from client-go
+	baseRT.TLSClientConfig = &tls.Config{
+		MinVersion: tls.VersionTLS12, // same as client-go and MS SDK
+		// enable HTTP2
+		// setting this explicitly is only required in very specific circumstances
+		// it is simpler to just set it here than to try and determine if we need to
+		NextProtos: []string{"h2", "http/1.1"},
 	}
+	utilnet.SetTransportDefaults(baseRT)
 	return baseRT
 }
 
