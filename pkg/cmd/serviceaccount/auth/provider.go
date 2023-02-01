@@ -2,23 +2,26 @@ package auth
 
 import (
 	"crypto/tls"
-	"net"
 	"net/http"
 	"os"
 	"path/filepath"
 	"runtime"
 	"time"
 
+	"github.com/Azure/go-autorest/autorest/azure"
+	"github.com/google/uuid"
+	nethttplibrary "github.com/microsoft/kiota/http/go/nethttp"
+	msgraphbetasdkgo "github.com/microsoftgraph/msgraph-beta-sdk-go"
+	msgraphgocore "github.com/microsoftgraph/msgraph-sdk-go-core"
+	"github.com/pkg/errors"
+	"github.com/spf13/pflag"
+	ini "gopkg.in/ini.v1"
+	utilnet "k8s.io/apimachinery/pkg/util/net"
+	"k8s.io/client-go/rest"
 	"k8s.io/client-go/transport"
 	"monis.app/mlog"
 
 	"github.com/Azure/azure-workload-identity/pkg/cloud"
-
-	"github.com/Azure/go-autorest/autorest/azure"
-	"github.com/google/uuid"
-	"github.com/pkg/errors"
-	"github.com/spf13/pflag"
-	ini "gopkg.in/ini.v1"
 )
 
 const (
@@ -49,11 +52,67 @@ type authArgs struct {
 	certificatePath string
 	privateKeyPath  string
 	azureClient     cloud.Interface
+
+	client *http.Client
 }
 
 // NewProvider returns a new authArgs
 func NewProvider() Provider {
-	return &authArgs{}
+	return &authArgs{client: defaultClient()}
+}
+
+func defaultClient() *http.Client {
+	return &http.Client{
+		Transport: defaultWrap(defaultTransport()),
+		Timeout:   3 * time.Hour, // make it impossible for requests to hang indefinitely
+		CheckRedirect: func(_ *http.Request, _ []*http.Request) error {
+			return http.ErrUseLastResponse // copied from MS SDK
+		},
+	}
+}
+
+func defaultTransport() *http.Transport {
+	baseRT := http.DefaultTransport.(*http.Transport).Clone()
+	utilnet.SetTransportDefaults(baseRT)
+	baseRT.MaxIdleConnsPerHost = 25       // copied from client-go
+	baseRT.TLSClientConfig = &tls.Config{ // TODO compare with pinniped and client-go
+		MinVersion: tls.VersionTLS12,
+	}
+	return baseRT
+}
+
+func defaultWrap(rt http.RoundTripper) http.RoundTripper {
+	opts := msgraphbetasdkgo.GetDefaultClientOptions()
+	rt = newMiddlewarePipeline(msgraphgocore.GetDefaultMiddlewaresWithOptions(&opts), rt)
+	rt = transport.NewUserAgentRoundTripper(rest.DefaultKubernetesUserAgent(), rt)
+	rt = transport.DebugWrappers(rt)
+	return rt
+}
+
+// copied from MS SDK so we can inject custom base round tripper
+type middlewarePipeline struct {
+	transport   http.RoundTripper
+	middlewares []nethttplibrary.Middleware
+}
+
+func newMiddlewarePipeline(middlewares []nethttplibrary.Middleware, rt http.RoundTripper) http.RoundTripper {
+	return &middlewarePipeline{
+		transport:   rt,
+		middlewares: middlewares,
+	}
+}
+
+func (p *middlewarePipeline) Next(req *http.Request, middlewareIndex int) (*http.Response, error) {
+	if middlewareIndex < len(p.middlewares) {
+		middleware := p.middlewares[middlewareIndex]
+		return middleware.Intercept(p, middlewareIndex+1, req)
+	}
+
+	return p.transport.RoundTrip(req)
+}
+
+func (p *middlewarePipeline) RoundTrip(req *http.Request) (*http.Response, error) {
+	return p.Next(req, 0)
 }
 
 // AddFlags adds the flags for this package to the specified FlagSet
@@ -124,11 +183,11 @@ func (a *authArgs) Validate() error {
 
 	switch a.authMethod {
 	case cliAuthMethod:
-		a.azureClient, err = cloud.NewAzureClientWithCLI(env, a.subscriptionID.String(), a.tenantID, defaultHTTPClient2)
+		a.azureClient, err = cloud.NewAzureClientWithCLI(env, a.subscriptionID.String(), a.tenantID, a.client)
 	case clientSecretAuthMethod:
-		a.azureClient, err = cloud.NewAzureClientWithClientSecret(env, a.subscriptionID.String(), a.clientID.String(), a.clientSecret, a.tenantID, defaultHTTPClient2)
+		a.azureClient, err = cloud.NewAzureClientWithClientSecret(env, a.subscriptionID.String(), a.clientID.String(), a.clientSecret, a.tenantID, a.client)
 	case clientCertificateAuthMethod:
-		a.azureClient, err = cloud.NewAzureClientWithClientCertificateFile(env, a.subscriptionID.String(), a.clientID.String(), a.tenantID, a.certificatePath, a.privateKeyPath, defaultHTTPClient2)
+		a.azureClient, err = cloud.NewAzureClientWithClientCertificateFile(env, a.subscriptionID.String(), a.clientID.String(), a.tenantID, a.certificatePath, a.privateKeyPath, a.client)
 	default:
 		err = errors.Errorf("--auth-method: ERROR: method unsupported. method=%q", a.authMethod)
 	}
@@ -188,28 +247,4 @@ func getHomeDir() string {
 		return home
 	}
 	return os.Getenv("HOME")
-}
-
-// TODO remove global
-var defaultHTTPClient2 = &http.Client{
-	// TODO wire debug wrappers to clients
-
-	// TODO copy safe wrapper from pinniped (maybe)
-	// TODO still need to fix kubeclient
-	// TODO come this with stb lib and pinniped and use Clone on default transport
-	Transport: transport.DebugWrappers(&http.Transport{
-		Proxy: http.ProxyFromEnvironment,
-		DialContext: (&net.Dialer{
-			Timeout:   30 * time.Second,
-			KeepAlive: 30 * time.Second,
-		}).DialContext,
-		ForceAttemptHTTP2:     true,
-		MaxIdleConns:          100,
-		IdleConnTimeout:       90 * time.Second,
-		TLSHandshakeTimeout:   10 * time.Second,
-		ExpectContinueTimeout: 1 * time.Second,
-		TLSClientConfig: &tls.Config{
-			MinVersion: tls.VersionTLS12,
-		},
-	}),
 }
